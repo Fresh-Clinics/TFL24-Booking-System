@@ -14,89 +14,82 @@
 <button id="exportButton">Export Fetched Data</button>
 
 <script>
-// Ensure jQuery ($) is available
-if (typeof jQuery === 'undefined' || typeof $ === 'undefined') {
-    console.error('jQuery is not loaded correctly.');
-    alert('Error: jQuery is not loaded correctly.');
-}
-
 // Object to store fetched data
 var fetchedData = {
     events: [],
     startTimeMatrices: {}
 };
 
+// Define callback for success and error handling
+function handleSuccess(response) {
+    console.log('Response received:', response);
+    return response;
+}
+
+function handleError(error) {
+    console.error('Error occurred:', error);
+    alert('Error occurred: ' + error.message);
+}
+
 // Fetch Token using SimplyBook.me API
 var loginClient = new JSONRpcClient({
     'url': 'https://user-api.simplybook.me/login',
-    'onerror': function (error) {
-        console.error("Error during login:", error);
-        alert("Error during login. Check the console for details.");
-    }
+    'onerror': handleError
 });
 
 try {
-    var token = loginClient.getToken('thefreshlifeconference', '897ead6108e21774d62e8cdcd7fd1faf16cf003bc5e93e2f8d502be3afc5f878');
-} catch (error) {
-    console.error("Failed to retrieve token:", error);
-    alert("Failed to retrieve token. Check the console for details.");
-}
-
-// Check if token is retrieved successfully
-if (token) {
-    console.log('Token retrieved successfully:', token);
-
-    // Fetch Event List
-    var adminClient = new JSONRpcClient({
-        'url': 'https://user-api.simplybook.me/admin',
-        'headers': {
-            'Content-Type': 'application/json',
-            'X-Company-Login': 'thefreshlifeconference',
-            'X-Token': token
-        },
-        'onerror': function (error) {
-            console.error("Error fetching events or time slots:", error);
-            alert("Error fetching events or time slots. Check the console for details.");
+    loginClient.getToken('thefreshlifeconference', '897ead6108e21774d62e8cdcd7fd1faf16cf003bc5e93e2f8d502be3afc5f878', function(token) {
+        if (!token) {
+            console.error('Failed to retrieve token.');
+            alert('Failed to retrieve token.');
+            return;
         }
-    });
 
-    // Get the event list - only visible events
-    try {
-        fetchedData.events = adminClient.getEventList(true, true, null, '');
-        console.log('Events fetched:', fetchedData.events);
-    } catch (error) {
-        console.error("Error fetching event list:", error);
-        alert("Error fetching event list. Check the console for details.");
-    }
+        console.log('Token retrieved successfully:', token);
 
-    // Fetch Cartesian Start Time Matrix for specific dates and event IDs
-    var startDate = '2024-10-29';
-    var endDate = '2024-10-31';
+        // Fetch Event List
+        var adminClient = new JSONRpcClient({
+            'url': 'https://user-api.simplybook.me/admin',
+            'headers': {
+                'Content-Type': 'application/json',
+                'X-Company-Login': 'thefreshlifeconference',
+                'X-Token': token
+            },
+            'onerror': handleError
+        });
 
-    // Throttle function to avoid API rate limit issues
-    function fetchStartTimeMatrixWithThrottle(event, delay) {
-        setTimeout(function() {
-            try {
-                var eventId = event.id;  // Adjust this depending on the response structure
-                var startTimeMatrix = adminClient.getCartesianStartTimeMatrix(startDate, endDate, eventId, null, null, null, []);
-                fetchedData.startTimeMatrices[eventId] = startTimeMatrix;
-                console.log('Start Time Matrix for Event ID ' + eventId + ':', startTimeMatrix);
-            } catch (error) {
-                console.error("Error fetching start time matrix for Event ID " + event.id + ":", error);
-                alert("Error fetching start time matrix for Event ID " + event.id + ". Check the console for details.");
+        // Get the event list - only visible events
+        adminClient.getEventList(true, true, null, '', function(events) {
+            fetchedData.events = events;
+            console.log('Events fetched:', fetchedData.events);
+
+            // Fetch Cartesian Start Time Matrix for specific dates and event IDs
+            var startDate = '2024-10-29';
+            var endDate = '2024-10-31';
+
+            // Throttle function to avoid API rate limit issues
+            function fetchStartTimeMatrixWithThrottle(event, delay) {
+                setTimeout(function() {
+                    var eventId = event.id;  // Adjust this depending on the response structure
+                    adminClient.getCartesianStartTimeMatrix(startDate, endDate, eventId, null, null, null, [], function(startTimeMatrix) {
+                        fetchedData.startTimeMatrices[eventId] = startTimeMatrix;
+                        console.log('Start Time Matrix for Event ID ' + eventId + ':', startTimeMatrix);
+                    }, handleError);
+                }, delay);
             }
-        }, delay);
-    }
 
-    // Iterate over each event and fetch Cartesian Start Time Matrix
-    var delay = 0;  // Start delay at 0ms
-    fetchedData.events.forEach(function(event, index) {
-        fetchStartTimeMatrixWithThrottle(event, delay);
-        delay += 1000;  // Increment delay by 1000ms (1 second) for each request to prevent hitting rate limits
-    });
-} else {
-    console.error('Failed to retrieve token.');
-    alert('Failed to retrieve token. Check the console for details.');
+            // Iterate over each event and fetch Cartesian Start Time Matrix
+            var delay = 0;  // Start delay at 0ms
+            fetchedData.events.forEach(function(event, index) {
+                fetchStartTimeMatrixWithThrottle(event, delay);
+                delay += 1000;  // Increment delay by 1000ms (1 second) for each request to prevent hitting rate limits
+            });
+
+        }, handleError);
+
+    }, handleError);
+} catch (error) {
+    handleError(error);
 }
 
 // Function to export fetched data as JSON
