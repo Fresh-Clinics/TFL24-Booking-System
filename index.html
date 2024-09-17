@@ -2,108 +2,108 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta http-equiv="X-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fetch and Export SimplyBook Data</title>
-    <!-- Include jQuery from a CDN -->
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <!-- Include the JSONRpcClient library from the local repository -->
-    <script src="json-rpc-client.js"></script> <!-- Ensure this path is correct -->
+    <title>Fetch SimplyBook.me Data</title>
+
+    <!-- Include jQuery -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <!-- Include JSON-RPC Client Library for SimplyBook.me -->
+    <script src="json-rpc-client.js"></script>
 </head>
 <body>
 
-<button id="exportButton">Export Fetched Data</button>
+<button id="fetchDataButton">Fetch Data from SimplyBook.me</button>
 
 <script>
-// Object to store fetched data
-var fetchedData = {
-    events: [],
-    startTimeMatrices: {}
-};
+$(document).ready(function () {
+    console.log("Initializing SimplyBook API Data Fetch...");
 
-// Define callback for success and error handling
-function handleSuccess(response) {
-    console.log('Response received:', response);
-    return response;
-}
+    // Initialize JSON-RPC Client for SimplyBook API to fetch the token
+    try {
+        var loginClient = new JSONRpcClient({
+            'url': 'https://user-api.simplybook.me/login',
+            'onerror': function (error) {
+                console.error("Login Error:", error);
+                alert("Error fetching token. Check console for details.");
+            }
+        });
 
-function handleError(error) {
-    console.error('Error occurred:', error);
-    alert('Error occurred: ' + error.message);
-}
+        // Fetch token dynamically using the SimplyBook API credentials
+        loginClient.getToken('thefreshlifeconference', 'a5dc632dedf9f85bb8d5bfdd1a8087401787b413111ac0cfbca269a84ec348f3', function (token) {
+            if (token) {
+                console.log("Fetched token: ", token);
+                // Fetch events with the token
+                fetchEvents(token);
+            } else {
+                console.error("Failed to fetch token. Please check your API credentials.");
+            }
+        });
+    } catch (e) {
+        console.error("Error initializing JSON-RPC client or fetching token:", e);
+    }
 
-// Fetch Token using SimplyBook.me API
-var loginClient = new JSONRpcClient({
-    'url': 'https://user-api.simplybook.me/login',
-    'onerror': handleError
-});
-
-try {
-    loginClient.getToken('thefreshlifeconference', '897ead6108e21774d62e8cdcd7fd1faf16cf003bc5e93e2f8d502be3afc5f878', function(token) {
-        if (!token) {
-            console.error('Failed to retrieve token.');
-            alert('Failed to retrieve token.');
-            return;
-        }
-
-        console.log('Token retrieved successfully:', token);
-
-        // Fetch Event List
-        var adminClient = new JSONRpcClient({
-            'url': 'https://user-api.simplybook.me/admin',
+    // Function to fetch events using the token
+    function fetchEvents(token) {
+        var client = new JSONRpcClient({
+            'url': 'https://user-api.simplybook.me',
             'headers': {
-                'Content-Type': 'application/json',
                 'X-Company-Login': 'thefreshlifeconference',
                 'X-Token': token
             },
-            'onerror': handleError
+            'onerror': function (error) {
+                console.error("Error in JSON-RPC client setup:", error);
+            }
         });
 
-        // Get the event list - only visible events
-        adminClient.getEventList(true, true, null, '', function(events) {
-            fetchedData.events = events;
-            console.log('Events fetched:', fetchedData.events);
-
-            // Fetch Cartesian Start Time Matrix for specific dates and event IDs
-            var startDate = '2024-10-29';
-            var endDate = '2024-10-31';
-
-            // Throttle function to avoid API rate limit issues
-            function fetchStartTimeMatrixWithThrottle(event, delay) {
-                setTimeout(function() {
-                    var eventId = event.id;  // Adjust this depending on the response structure
-                    adminClient.getCartesianStartTimeMatrix(startDate, endDate, eventId, null, null, null, [], function(startTimeMatrix) {
-                        fetchedData.startTimeMatrices[eventId] = startTimeMatrix;
-                        console.log('Start Time Matrix for Event ID ' + eventId + ':', startTimeMatrix);
-                    }, handleError);
-                }, delay);
+        client.request('getEventList', [true, true, null, ''], function (events) {
+            if (events) {
+                console.log("Fetched events (raw):", events);
+                
+                // Now fetch start times for the events
+                fetchStartTimes(token, events);
+            } else {
+                console.error("No events returned. Please check the API response.");
             }
+        }, function (error) {
+            console.error("Error fetching events:", error);
+        });
+    }
 
-            // Iterate over each event and fetch Cartesian Start Time Matrix
-            var delay = 0;  // Start delay at 0ms
-            fetchedData.events.forEach(function(event, index) {
-                fetchStartTimeMatrixWithThrottle(event, delay);
-                delay += 1000;  // Increment delay by 1000ms (1 second) for each request to prevent hitting rate limits
+    // Function to fetch Cartesian Start Time Matrix for each event
+    function fetchStartTimes(token, events) {
+        var client = new JSONRpcClient({
+            'url': 'https://user-api.simplybook.me',
+            'headers': {
+                'X-Company-Login': 'thefreshlifeconference',
+                'X-Token': token
+            },
+            'onerror': function (error) {
+                console.error("Error in JSON-RPC client setup:", error);
+            }
+        });
+
+        var startDate = '2024-10-29';
+        var endDate = '2024-10-31';
+
+        events.forEach(function(event) {
+            var eventId = event.id; // Assuming 'id' is the correct property for event ID
+            var providerIds = Object.keys(event.unit_map); // Assuming 'unit_map' has provider IDs
+
+            client.request('getCartesianStartTimeMatrix', [startDate, endDate, eventId, providerIds, 1, null, []], function (timeMatrix) {
+                console.log("Fetched start times for event " + eventId + ":", timeMatrix);
+            }, function (error) {
+                console.error("Error fetching start times for event " + eventId + ":", error);
             });
+        });
+    }
 
-        }, handleError);
-
-    }, handleError);
-} catch (error) {
-    handleError(error);
-}
-
-// Function to export fetched data as JSON
-function exportData() {
-    var dataStr = JSON.stringify(fetchedData, null, 2);
-    var dataBlob = new Blob([dataStr], { type: 'application/json' });
-    var downloadLink = document.createElement('a');
-    downloadLink.href = window.URL.createObjectURL(dataBlob);
-    downloadLink.download = 'simplybook_data.json';
-    downloadLink.click();
-}
-
-// Add event listener to the export button
-document.getElementById('exportButton').addEventListener('click', exportData);
+    // Trigger data fetch on button click
+    $('#fetchDataButton').click(function () {
+        console.log("Fetching data from SimplyBook.me...");
+        $(this).prop('disabled', true); // Disable button to prevent duplicate requests
+    });
+});
 </script>
 
 </body>
