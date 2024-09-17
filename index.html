@@ -7,13 +7,19 @@
     <!-- Include jQuery from a CDN -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <!-- Include the JSONRpcClient library from the local repository -->
-    <script src="./json-rpc-client.js"></script>
+    <script src="json-rpc-client.js"></script> <!-- Ensure this path is correct -->
 </head>
 <body>
 
 <button id="exportButton">Export Fetched Data</button>
 
 <script>
+// Ensure jQuery ($) is available
+if (typeof jQuery === 'undefined' || typeof $ === 'undefined') {
+    console.error('jQuery is not loaded correctly.');
+    alert('Error: jQuery is not loaded correctly.');
+}
+
 // Object to store fetched data
 var fetchedData = {
     events: [],
