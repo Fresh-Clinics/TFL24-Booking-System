@@ -105,28 +105,14 @@ $(document).ready(function () {
         $('#exportDataButton').show();
     }
 
-    // Export data to CSV format
-    function exportToCSV(data) {
-        const csvRows = [];
-        // Get headers
-        const headers = Object.keys(data[0]);
-        csvRows.push(headers.join(','));
-
-        // Get data
-        data.forEach(row => {
-            const values = headers.map(header => {
-                const escaped = ('' + row[header]).replace(/"/g, '\\"');
-                return `"${escaped}"`;
-            });
-            csvRows.push(values.join(','));
-        });
-
-        // Create a Blob from the CSV string and trigger a download
-        const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
+    // Export data to JSON format
+    function exportToJSON(data) {
+        const json = JSON.stringify(data, null, 2); // Format JSON with 2 spaces indentation
+        const blob = new Blob([json], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.setAttribute('href', url);
-        a.setAttribute('download', 'events_data.csv');
+        a.setAttribute('download', 'events_data.json');
         a.click();
         URL.revokeObjectURL(url); // Cleanup
     }
@@ -140,7 +126,7 @@ $(document).ready(function () {
     // Export data on button click
     $('#exportDataButton').click(function () {
         console.log("Exporting data...");
-        exportToCSV(allEventsData);
+        exportToJSON(allEventsData);
     });
 });
 </script>
