@@ -29,8 +29,8 @@ $(document).ready(function () {
             }
         });
 
-        // Fetch token dynamically using the SimplyBook API credentials
-        loginClient.getToken('thefreshlifeconference', 'a5dc632dedf9f85bb8d5bfdd1a8087401787b413111ac0cfbca269a84ec348f3', function (token) {
+        // Fetch token dynamically using the SimplyBook API credentials (updated API key)
+        loginClient.getToken('thefreshlifeconference', '897ead6108e21774d62e8cdcd7fd1faf16cf003bc5e93e2f8d502be3afc5f878', function (token) {
             if (token) {
                 console.log("Fetched token: ", token);
                 // Fetch events with the token
