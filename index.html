@@ -14,10 +14,12 @@
 <body>
 
 <button id="fetchDataButton">Fetch Data from SimplyBook.me</button>
+<button id="exportDataButton" style="display: none;">Export Data</button>
 
 <script>
 $(document).ready(function () {
     console.log("Initializing SimplyBook API Data Fetch...");
+    let allEventsData = []; // Array to hold all event data for export
 
     // Initialize JSON-RPC Client for SimplyBook API to fetch the token
     try {
@@ -29,7 +31,7 @@ $(document).ready(function () {
             }
         });
 
-        // Fetch token dynamically using the SimplyBook API credentials (updated API key)
+        // Fetch token dynamically using the SimplyBook API credentials
         loginClient.getToken('thefreshlifeconference', '897ead6108e21774d62e8cdcd7fd1faf16cf003bc5e93e2f8d502be3afc5f878', function (token) {
             if (token) {
                 console.log("Fetched token: ", token);
@@ -59,7 +61,7 @@ $(document).ready(function () {
         client.request('getEventList', [true, true, null, ''], function (events) {
             if (events) {
                 console.log("Fetched events (raw):", events);
-                
+                allEventsData = events; // Store events data for export
                 // Now fetch start times for the events
                 fetchStartTimes(token, events);
             } else {
@@ -87,21 +89,58 @@ $(document).ready(function () {
         var endDate = '2024-10-31';
 
         events.forEach(function(event) {
-            var eventId = event.id; // Assuming 'id' is the correct property for event ID
-            var providerIds = Object.keys(event.unit_map); // Assuming 'unit_map' has provider IDs
+            var eventId = event.id;
+            var providerIds = Object.keys(event.unit_map);
 
             client.request('getCartesianStartTimeMatrix', [startDate, endDate, eventId, providerIds, 1, null, []], function (timeMatrix) {
                 console.log("Fetched start times for event " + eventId + ":", timeMatrix);
+                // Add timeMatrix data to event data for export
+                event.timeMatrix = timeMatrix; 
             }, function (error) {
                 console.error("Error fetching start times for event " + eventId + ":", error);
             });
         });
+
+        // Show export button after fetching events
+        $('#exportDataButton').show();
+    }
+
+    // Export data to CSV format
+    function exportToCSV(data) {
+        const csvRows = [];
+        // Get headers
+        const headers = Object.keys(data[0]);
+        csvRows.push(headers.join(','));
+
+        // Get data
+        data.forEach(row => {
+            const values = headers.map(header => {
+                const escaped = ('' + row[header]).replace(/"/g, '\\"');
+                return `"${escaped}"`;
+            });
+            csvRows.push(values.join(','));
+        });
+
+        // Create a Blob from the CSV string and trigger a download
+        const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.setAttribute('href', url);
+        a.setAttribute('download', 'events_data.csv');
+        a.click();
+        URL.revokeObjectURL(url); // Cleanup
     }
 
     // Trigger data fetch on button click
     $('#fetchDataButton').click(function () {
         console.log("Fetching data from SimplyBook.me...");
         $(this).prop('disabled', true); // Disable button to prevent duplicate requests
+    });
+
+    // Export data on button click
+    $('#exportDataButton').click(function () {
+        console.log("Exporting data...");
+        exportToCSV(allEventsData);
     });
 });
 </script>
