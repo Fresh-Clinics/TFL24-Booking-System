@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fetch and Export SimplyBook Data</title>
+    <!-- Include the JSONRpcClient library from the local repository -->
+    <script src="./json-rpc-client.js"></script>
+</head>
+<body>
+
+<button id="exportButton">Export Fetched Data</button>
+
+<script>
+// Object to store fetched data
+var fetchedData = {
+    events: [],
+    startTimeMatrices: {}
+};
+
+// Fetch Token using SimplyBook.me API
+var loginClient = new JSONRpcClient({
+    'url': 'https://user-api.simplybook.me/login',
+    'onerror': function (error) {
+        console.error("Error during login:", error);
+        alert("Error during login. Check the console for details.");
+    }
+});
+
+try {
+    var token = loginClient.getToken('thefreshlifeconference', '897ead6108e21774d62e8cdcd7fd1faf16cf003bc5e93e2f8d502be3afc5f878');
+} catch (error) {
+    console.error("Failed to retrieve token:", error);
+    alert("Failed to retrieve token. Check the console for details.");
+}
+
+// Check if token is retrieved successfully
+if (token) {
+    console.log('Token retrieved successfully:', token);
+
+    // Fetch Event List
+    var adminClient = new JSONRpcClient({
+        'url': 'https://user-api.simplybook.me/admin',
+        'headers': {
+            'Content-Type': 'application/json',
+            'X-Company-Login': 'thefreshlifeconference',
+            'X-Token': token
+        },
+        'onerror': function (error) {
+            console.error("Error fetching events or time slots:", error);
+            alert("Error fetching events or time slots. Check the console for details.");
+        }
+    });
+
+    // Get the event list - only visible events
+    try {
+        fetchedData.events = adminClient.getEventList(true, true, null, '');
+        console.log('Events fetched:', fetchedData.events);
+    } catch (error) {
+        console.error("Error fetching event list:", error);
+        alert("Error fetching event list. Check the console for details.");
+    }
+
+    // Fetch Cartesian Start Time Matrix for specific dates and event IDs
+    var startDate = '2024-10-29';
+    var endDate = '2024-10-31';
+
+    // Throttle function to avoid API rate limit issues
+    function fetchStartTimeMatrixWithThrottle(event, delay) {
+        setTimeout(function() {
+            try {
+                var eventId = event.id;  // Adjust this depending on the response structure
+                var startTimeMatrix = adminClient.getCartesianStartTimeMatrix(startDate, endDate, eventId, null, null, null, []);
+                fetchedData.startTimeMatrices[eventId] = startTimeMatrix;
+                console.log('Start Time Matrix for Event ID ' + eventId + ':', startTimeMatrix);
+            } catch (error) {
+                console.error("Error fetching start time matrix for Event ID " + event.id + ":", error);
+                alert("Error fetching start time matrix for Event ID " + event.id + ". Check the console for details.");
+            }
+        }, delay);
+    }
+
+    // Iterate over each event and fetch Cartesian Start Time Matrix
+    var delay = 0;  // Start delay at 0ms
+    fetchedData.events.forEach(function(event, index) {
+        fetchStartTimeMatrixWithThrottle(event, delay);
+        delay += 1000;  // Increment delay by 1000ms (1 second) for each request to prevent hitting rate limits
+    });
+} else {
+    console.error('Failed to retrieve token.');
+    alert('Failed to retrieve token. Check the console for details.');
+}
+
+// Function to export fetched data as JSON
+function exportData() {
+    var dataStr = JSON.stringify(fetchedData, null, 2);
+    var dataBlob = new Blob([dataStr], { type: 'application/json' });
+    var downloadLink = document.createElement('a');
+    downloadLink.href = window.URL.createObjectURL(dataBlob);
+    downloadLink.download = 'simplybook_data.json';
+    downloadLink.click();
+}
+
+// Add event listener to the export button
+document.getElementById('exportButton').addEventListener('click', exportData);
+</script>
+
+</body>
+</html>
