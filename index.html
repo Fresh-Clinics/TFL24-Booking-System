@@ -85,8 +85,9 @@ $(document).ready(function () {
             }
         });
 
-        var startDate = '2024-09-30';
-        var endDate = '2024-09-30';
+        // Update start and end dates as per your request
+        var startDate = '2024-10-29';
+        var endDate = '2024-10-31';
 
         let promises = events.map(event => {
             return new Promise((resolve, reject) => {
@@ -95,6 +96,19 @@ $(document).ready(function () {
 
                 client.request('getCartesianStartTimeMatrix', [startDate, endDate, eventId, providerIds, 1, null, []], function (timeMatrix) {
                     console.log("Fetched start times for event " + eventId + ":", timeMatrix);
+                    
+                    // Check and store timeslot data in event
+                    if (timeMatrix && timeMatrix.length > 0) {
+                        timeMatrix.forEach(matrix => {
+                            const timeslots = matrix.timeslots;
+                            for (const [date, times] of Object.entries(timeslots)) {
+                                if (times.length > 0) {
+                                    console.log(`Times for ${date}:`, times);
+                                }
+                            }
+                        });
+                    }
+
                     // Add timeMatrix data to event data for export
                     event.timeMatrix = timeMatrix;
                     resolve(); // Resolve the promise when done
