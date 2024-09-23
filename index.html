@@ -105,15 +105,22 @@ $(document).ready(function () {
             });
         });
 
-        // Wait for all start times to be fetched before showing the export button
-        Promise.all(promises)
-            .then(() => {
-                $('#exportDataButton').show(); // Show export button after all data is fetched
-            })
-            .catch(error => {
-                console.error("Error fetching some start times:", error);
-            });
-    }
+        // Wait for all start times to be fetched, showing the export button regardless of success or failure
+Promise.allSettled(promises)
+    .then((results) => {
+        const failedRequests = results.filter(result => result.status === 'rejected');
+        
+        if (failedRequests.length > 0) {
+            console.warn(`Some start times couldn't be fetched: ${failedRequests.length} failures.`);
+        }
+
+        // Show the export button regardless of success or failure
+        $('#exportDataButton').show();
+    })
+    .catch(error => {
+        console.error("Unexpected error in fetching start times:", error);
+    });
+
 
     // Export data to JSON format
     function exportToJSON(data) {
