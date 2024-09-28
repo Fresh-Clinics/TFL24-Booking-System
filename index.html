@@ -133,19 +133,43 @@ $(document).ready(function () {
 
         // Loop through your data and format it for Excel
         data.forEach(event => {
-            // Base row data
+            // Base row data including all API information
             let baseRow = {
                 ID: event.id,
                 Name: event.name,
                 Duration: event.duration,
+                BufferTimeBefore: event.buffertime_before,
+                BufferTimeAfter: event.buffertime_after,
+                HideDuration: event.hide_duration,
                 Description: event.description,
                 IsPublic: event.is_public,
                 IsActive: event.is_active,
-                Price: event.price,
-                Currency: event.currency,
-                BookingsLimit: event.bookings_limit,
-                Categories: event.categories ? event.categories.join(', ') : '',
+                Position: event.position,
+                FileID: event.file_id,
+                SEOURL: event.seo_url,
+                MinTimeTillEvent: event.min_time_till_event,
+                MaxTimeTillEvent: event.max_time_till_event,
+                IsRecurring: event.is_recurring,
+                Picture: event.picture,
+                PictureSubPath: event.picture_sub_path,
+                ClassID: event.class_id,
+                IsVisible: event.is_visible,
+                PicturePath: event.picture_path,
+                UnitMap: JSON.stringify(event.unit_map),
                 Providers: event.providers ? event.providers.join(', ') : '',
+                Price: event.price,
+                PluginInvoiceTaxID: event.plugin_invoice_tax_id,
+                Currency: event.currency,
+                Tax: event.tax,
+                Categories: event.categories ? event.categories.join(', ') : '',
+                PositionInCategory: JSON.stringify(event.position_in_category),
+                AdditionalFields: event.additional_fields ? event.additional_fields.join(', ') : '',
+                BookingsLimit: event.bookings_limit,
+                Memberships: event.memberships ? event.memberships.join(', ') : '',
+                PaidAttributes: event.paid_attributes ? event.paid_attributes.join(', ') : '',
+                HasPaidAttributes: event.has_paid_attributes,
+                ResourceGroups: event.resource_groups ? event.resource_groups.join(', ') : '',
+                TicketID: event.ticket_id,
                 // Add other fields as needed
             };
 
@@ -163,15 +187,32 @@ $(document).ready(function () {
                                 let timeslotRow = { ...baseRow };
                                 timeslotRow.ProviderID = providerId;
                                 timeslotRow.ServiceID = serviceId;
-                                timeslotRow.Date = date;
-                                timeslotRow.Time = time;
+
+                                // Combine Date and Time into Start Date
+                                let startDateTimeStr = date + ' ' + time;
+                                let startDateTime = new Date(startDateTimeStr);
+
+                                // Format Start Date as "dd/mm/yyyy hh:mm"
+                                let formattedStartDate = formatDate(startDateTime);
+
+                                timeslotRow['Start Date'] = formattedStartDate;
+
+                                // Calculate End Date by adding duration (in minutes) to Start Date
+                                let durationMinutes = parseInt(event.duration, 10);
+                                let endDateTime = new Date(startDateTime.getTime() + durationMinutes * 60000);
+
+                                // Format End Date as "dd/mm/yyyy hh:mm"
+                                let formattedEndDate = formatDate(endDateTime);
+
+                                timeslotRow['End Date'] = formattedEndDate;
+
                                 excelData.push(timeslotRow);
                             });
                         }
                     }
                 });
             } else {
-                // If no timeslots, just push the base row
+                // If no timeslots, just push the base row without Start Date and End Date
                 excelData.push(baseRow);
             }
         });
@@ -185,6 +226,17 @@ $(document).ready(function () {
 
         // Generate Excel file and trigger download
         XLSX.writeFile(workbook, 'events_data.xlsx');
+    }
+
+    // Helper function to format Date as "dd/mm/yyyy hh:mm"
+    function formatDate(dateObj) {
+        let day = ('0' + dateObj.getDate()).slice(-2);
+        let month = ('0' + (dateObj.getMonth() + 1)).slice(-2);
+        let year = dateObj.getFullYear();
+        let hours = ('0' + dateObj.getHours()).slice(-2);
+        let minutes = ('0' + dateObj.getMinutes()).slice(-2);
+
+        return `${day}/${month}/${year} ${hours}:${minutes}`;
     }
 
     // Trigger data fetch on button click
