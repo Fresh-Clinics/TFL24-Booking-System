@@ -1,3 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fetch SimplyBook.me Data</title>
+</head>
+<body>
+
+<button id="fetchDataButton">Fetch Data from SimplyBook.me</button>
+<button id="exportDataButton" style="display: none;">Export Data</button>
+
+<!-- Include jQuery -->
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+<!-- Include JSON-RPC Client Library for SimplyBook.me -->
+<script src="json-rpc-client.js"></script>
+<!-- Include SheetJS Library -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
 <script>
 $(document).ready(function () {
     console.log("Initializing SimplyBook API Data Fetch...");
@@ -78,18 +98,6 @@ $(document).ready(function () {
 
                 client.request('getCartesianStartTimeMatrix', [startDate, endDate, eventId, providerIds, 1, null, []], function (timeMatrix) {
                     console.log("Fetched start times for event " + eventId + ":", timeMatrix);
-                    
-                    // Check and store timeslot data in event
-                    if (timeMatrix && timeMatrix.length > 0) {
-                        timeMatrix.forEach(matrix => {
-                            const timeslots = matrix.timeslots;
-                            for (const [date, times] of Object.entries(timeslots)) {
-                                if (times.length > 0) {
-                                    console.log(`Times for ${date}:`, times);
-                                }
-                            }
-                        });
-                    }
 
                     // Add timeMatrix data to event data for export
                     event.timeMatrix = timeMatrix;
@@ -105,7 +113,7 @@ $(document).ready(function () {
         Promise.allSettled(promises)
             .then((results) => {
                 const failedRequests = results.filter(result => result.status === 'rejected');
-                
+
                 if (failedRequests.length > 0) {
                     console.warn(`Some start times couldn't be fetched: ${failedRequests.length} failures.`);
                 }
@@ -136,17 +144,25 @@ $(document).ready(function () {
                 Price: event.price,
                 Currency: event.currency,
                 BookingsLimit: event.bookings_limit,
+                Categories: event.categories ? event.categories.join(', ') : '',
+                Providers: event.providers ? event.providers.join(', ') : '',
                 // Add other fields as needed
             };
 
-            // If you want to include timeslots, you can process them here
+            // If you want to include timeslots, process them here
             if (event.timeMatrix && event.timeMatrix.length > 0) {
                 event.timeMatrix.forEach(matrix => {
-                    for (const [date, times] of Object.entries(matrix.timeslots)) {
+                    let providerId = matrix.provider_id;
+                    let serviceId = matrix.service_id;
+                    let timeslots = matrix.timeslots;
+
+                    for (const [date, times] of Object.entries(timeslots)) {
                         if (times.length > 0) {
                             times.forEach(time => {
                                 // Create a new row for each timeslot
                                 let timeslotRow = { ...baseRow };
+                                timeslotRow.ProviderID = providerId;
+                                timeslotRow.ServiceID = serviceId;
                                 timeslotRow.Date = date;
                                 timeslotRow.Time = time;
                                 excelData.push(timeslotRow);
@@ -184,3 +200,6 @@ $(document).ready(function () {
     });
 });
 </script>
+
+</body>
+</html>
