@@ -1,21 +1,3 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta http-equiv="X-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fetch SimplyBook.me Data</title>
-
-    <!-- Include jQuery -->
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
-    <!-- Include JSON-RPC Client Library for SimplyBook.me -->
-    <script src="json-rpc-client.js"></script>
-</head>
-<body>
-
-<button id="fetchDataButton">Fetch Data from SimplyBook.me</button>
-<button id="exportDataButton" style="display: none;">Export Data</button>
-
 <script>
 $(document).ready(function () {
     console.log("Initializing SimplyBook API Data Fetch...");
@@ -136,16 +118,57 @@ $(document).ready(function () {
             });
     }
 
-    // Export data to JSON format
-    function exportToJSON(data) {
-        const json = JSON.stringify(data, null, 2); // Format JSON with 2 spaces indentation
-        const blob = new Blob([json], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.setAttribute('href', url);
-        a.setAttribute('download', 'events_data.json');
-        a.click();
-        URL.revokeObjectURL(url); // Cleanup
+    // Export data to Excel format
+    function exportToExcel(data) {
+        // Prepare an array of objects to represent rows in Excel
+        let excelData = [];
+
+        // Loop through your data and format it for Excel
+        data.forEach(event => {
+            // Base row data
+            let baseRow = {
+                ID: event.id,
+                Name: event.name,
+                Duration: event.duration,
+                Description: event.description,
+                IsPublic: event.is_public,
+                IsActive: event.is_active,
+                Price: event.price,
+                Currency: event.currency,
+                BookingsLimit: event.bookings_limit,
+                // Add other fields as needed
+            };
+
+            // If you want to include timeslots, you can process them here
+            if (event.timeMatrix && event.timeMatrix.length > 0) {
+                event.timeMatrix.forEach(matrix => {
+                    for (const [date, times] of Object.entries(matrix.timeslots)) {
+                        if (times.length > 0) {
+                            times.forEach(time => {
+                                // Create a new row for each timeslot
+                                let timeslotRow = { ...baseRow };
+                                timeslotRow.Date = date;
+                                timeslotRow.Time = time;
+                                excelData.push(timeslotRow);
+                            });
+                        }
+                    }
+                });
+            } else {
+                // If no timeslots, just push the base row
+                excelData.push(baseRow);
+            }
+        });
+
+        // Convert JSON to worksheet
+        let worksheet = XLSX.utils.json_to_sheet(excelData);
+
+        // Create a new workbook and append the worksheet
+        let workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'EventsData');
+
+        // Generate Excel file and trigger download
+        XLSX.writeFile(workbook, 'events_data.xlsx');
     }
 
     // Trigger data fetch on button click
@@ -157,10 +180,7 @@ $(document).ready(function () {
     // Export data on button click
     $('#exportDataButton').click(function () {
         console.log("Exporting data...");
-        exportToJSON(allEventsData);
+        exportToExcel(allEventsData);
     });
 });
 </script>
-
-</body>
-</html>
